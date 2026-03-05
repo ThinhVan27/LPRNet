@@ -1,14 +1,18 @@
 from torch.utils.data import *
-from imutils import paths
+from torchvision import transforms
 import numpy as np
+import torch
 import random
+import json
 import cv2
+from PIL import Image
 import os
 
-CHARS = ['京', '沪', '津', '渝', '冀', '晋', '蒙', '辽', '吉', '黑',
-         '苏', '浙', '皖', '闽', '赣', '鲁', '豫', '鄂', '湘', '粤',
-         '桂', '琼', '川', '贵', '云', '藏', '陕', '甘', '青', '宁',
-         '新',
+from .data_augment import train_transforms, test_transforms
+
+from typing import Optional, Callable
+
+CHARS = [
          '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
          'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'J', 'K',
          'L', 'M', 'N', 'P', 'Q', 'R', 'S', 'T', 'U', 'V',
@@ -17,59 +21,64 @@ CHARS = ['京', '沪', '津', '渝', '冀', '晋', '蒙', '辽', '吉', '黑',
 
 CHARS_DICT = {char:i for i, char in enumerate(CHARS)}
 
-class LPRDataLoader(Dataset):
-    def __init__(self, img_dir, imgSize, lpr_max_len, PreprocFun=None):
-        self.img_dir = img_dir
-        self.img_paths = []
-        for i in range(len(img_dir)):
-            self.img_paths += [el for el in paths.list_images(img_dir[i])]
-        random.shuffle(self.img_paths)
-        self.img_size = imgSize
+class LPRDataset(Dataset):
+    def __init__(self,
+                 root: str,
+                 train: bool = True,
+                 lpr_max_len: int = 8,
+                 transform: Optional[Callable] = None,
+                 max_samples: int = -1):
+        if not os.path.exists(root):
+            raise ValueError(f"Data path is not exist")
+        self.root = root
+        self.train = train
         self.lpr_max_len = lpr_max_len
-        if PreprocFun is not None:
-            self.PreprocFun = PreprocFun
+        self.max_samples = max_samples
+        if transform:
+            self.transform = transform
+        elif train:
+            self.transform = train_transforms
         else:
-            self.PreprocFun = self.transform
-
+            self.transform = test_transforms
+        self.n_samples = 0
+        self.track_path = []
+        for sc in os.listdir(self.root):
+            for type in os.listdir(os.path.join(self.root, sc)):
+                track_root = os.path.join(self.root, sc, type)
+                self.n_samples += len(os.listdir(track_root))
+                self.track_path.extend([os.path.join(track_root, track_name) for track_name in os.listdir(track_root)])
+        self._valid_dataset()
+        self.chars = CHARS
+    
     def __len__(self):
-        return len(self.img_paths)
-
-    def __getitem__(self, index):
-        filename = self.img_paths[index]
-        Image = cv2.imread(filename)
-        height, width, _ = Image.shape
-        if height != self.img_size[1] or width != self.img_size[0]:
-            Image = cv2.resize(Image, self.img_size)
-        Image = self.PreprocFun(Image)
-
-        basename = os.path.basename(filename)
-        imgname, suffix = os.path.splitext(basename)
-        imgname = imgname.split("-")[0].split("_")[0]
-        label = list()
-        for c in imgname:
-            # one_hot_base = np.zeros(len(CHARS))
-            # one_hot_base[CHARS_DICT[c]] = 1
-            label.append(CHARS_DICT[c])
-
-        if len(label) == 8:
-            if self.check(label) == False:
-                print(imgname)
-                assert 0, "Error label ^~^!!!"
-
-        return Image, label, len(label)
-
-    def transform(self, img):
-        img = img.astype('float32')
-        img -= 127.5
-        img *= 0.0078125
-        img = np.transpose(img, (2, 0, 1))
-
-        return img
-
-    def check(self, label):
-        if label[2] != CHARS_DICT['D'] and label[2] != CHARS_DICT['F'] \
-                and label[-1] != CHARS_DICT['D'] and label[-1] != CHARS_DICT['F']:
-            print("Error label, Please check!")
-            return False
-        else:
-            return True
+        return min(self.n_samples, self.max_samples) if self.max_samples > 0 else self.n_samples
+    
+    def __getitem__(self, idx: int):
+        if idx < 0:
+            raise ValueError(f"Index must be non-negative integer")
+        track_dir = self.track_path[idx]
+        img_path = os.path.join(track_dir, "hr-001.png" if "hr-001.png" in os.listdir(track_dir) else "hr-001.jpg")
+        img = self.transform(Image.open(img_path))
+        if not self.train:
+            return img
+        target = self._read_annotation(track_dir)
+        encoded_target = [CHARS_DICT.get(c, len(CHARS) - 1) for c in target]
+        return img, encoded_target, len(target)
+    
+    def _read_annotation(self, track_dir: str) -> str:
+        if not os.path.exists(track_dir):
+            raise ValueError(f"{track_dir} does not exists")
+        try:
+            with open(os.path.join(track_dir, "annotations.json"), 'r', encoding="utf-8") as f:
+                anno = json.load(f)
+            target = anno.get('plate_text', "")
+            return target
+        except Exception as e:
+            raise e
+    
+    def _valid_dataset(self):
+        for i in range(len(self)):
+            try:
+                self[i]
+            except Exception as e:
+                raise e

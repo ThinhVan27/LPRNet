@@ -17,33 +17,33 @@ class small_basic_block(nn.Module):
         return self.block(x)
 
 class LPRNet(nn.Module):
-    def __init__(self, lpr_max_len, phase, class_num, dropout_rate):
+    def __init__(self, lpr_max_len, train, class_num, dropout_rate):
         super(LPRNet, self).__init__()
-        self.phase = phase
+        self.phase = train
         self.lpr_max_len = lpr_max_len
         self.class_num = class_num
         self.backbone = nn.Sequential(
-            nn.Conv2d(in_channels=3, out_channels=64, kernel_size=3, stride=1), # 0
-            nn.BatchNorm2d(num_features=64),
+            nn.Conv2d(in_channels=3, out_channels=64, kernel_size=3, stride=1), # 0, 64x22x92
+            nn.BatchNorm2d(num_features=64), # 64x22x92
             nn.ReLU(),  # 2
-            nn.MaxPool3d(kernel_size=(1, 3, 3), stride=(1, 1, 1)),
-            small_basic_block(ch_in=64, ch_out=128),    # *** 4 ***
-            nn.BatchNorm2d(num_features=128),
+            nn.MaxPool3d(kernel_size=(1, 3, 3), stride=(1, 1, 1)), # 64x20x90
+            small_basic_block(ch_in=64, ch_out=128),    # *** 4 *** # 128x20x90
+            nn.BatchNorm2d(num_features=128), # 128x20zx90
             nn.ReLU(),  # 6
-            nn.MaxPool3d(kernel_size=(1, 3, 3), stride=(2, 1, 2)),
-            small_basic_block(ch_in=64, ch_out=256),   # 8
+            nn.MaxPool3d(kernel_size=(1, 3, 3), stride=(2, 1, 2)), # 64x18x44
+            small_basic_block(ch_in=64, ch_out=256),   # 8# 256x18x44
             nn.BatchNorm2d(num_features=256),
             nn.ReLU(),  # 10
-            small_basic_block(ch_in=256, ch_out=256),   # *** 11 ***
-            nn.BatchNorm2d(num_features=256),   # 12
-            nn.ReLU(),
-            nn.MaxPool3d(kernel_size=(1, 3, 3), stride=(4, 1, 2)),  # 14
+            small_basic_block(ch_in=256, ch_out=256),   # *** 11 *** 256x18x44
+            nn.BatchNorm2d(num_features=256),   # 12 
+            nn.ReLU(), # 13
+            nn.MaxPool3d(kernel_size=(1, 3, 3), stride=(4, 1, 2)),  # 14 64x16x21
             nn.Dropout(dropout_rate),
-            nn.Conv2d(in_channels=64, out_channels=256, kernel_size=(1, 4), stride=1),  # 16
+            nn.Conv2d(in_channels=64, out_channels=256, kernel_size=(1, 4), stride=1),  # 16 256x16x18
             nn.BatchNorm2d(num_features=256),
             nn.ReLU(),  # 18
             nn.Dropout(dropout_rate),
-            nn.Conv2d(in_channels=256, out_channels=class_num, kernel_size=(13, 1), stride=1), # 20
+            nn.Conv2d(in_channels=256, out_channels=class_num, kernel_size=(13, 1), stride=1), # 20 37x4x18
             nn.BatchNorm2d(num_features=class_num),
             nn.ReLU(),  # *** 22 ***
         )
@@ -79,11 +79,11 @@ class LPRNet(nn.Module):
 
         return logits
 
-def build_lprnet(lpr_max_len=8, phase=False, class_num=66, dropout_rate=0.5):
+def build_lprnet(lpr_max_len=8, train=False, class_num=37, dropout_rate=0.5):
 
-    Net = LPRNet(lpr_max_len, phase, class_num, dropout_rate)
+    Net = LPRNet(lpr_max_len, train, class_num, dropout_rate)
 
-    if phase == "train":
+    if train == True:
         return Net.train()
     else:
         return Net.eval()

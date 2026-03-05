@@ -6,9 +6,12 @@ Pytorch implementation for LPRNet.
 Author: aiboy.wei@outlook.com .
 '''
 
-from data.load_data import CHARS, CHARS_DICT, LPRDataLoader
+from data.load_data import CHARS, CHARS_DICT, LPRDataset
 from model.LPRNet import build_lprnet
 # import torch.backends.cudnn as cudnn
+from sklearn.model_selection import train_test_split
+from tqdm.auto import tqdm
+from torch.utils.data import Subset
 from torch.autograd import Variable
 import torch.nn.functional as F
 from torch.utils.data import *
@@ -48,18 +51,18 @@ def adjust_learning_rate(optimizer, cur_epoch, base_lr, lr_schedule):
 
 def get_parser():
     parser = argparse.ArgumentParser(description='parameters to train net')
-    parser.add_argument('--max_epoch', default=15, help='epoch to train the network')
+    parser.add_argument('--max_epoch', default=15, type=int, help='epoch to train the network')
     parser.add_argument('--img_size', default=[94, 24], help='the image size')
     parser.add_argument('--train_img_dirs', default="~/workspace/trainMixLPR", help='the train images path')
     parser.add_argument('--test_img_dirs', default="~/workspace/testMixLPR", help='the test images path')
-    parser.add_argument('--dropout_rate', default=0.5, help='dropout rate.')
-    parser.add_argument('--learning_rate', default=0.1, help='base value of learning rate.')
-    parser.add_argument('--lpr_max_len', default=8, help='license plate number max length.')
-    parser.add_argument('--train_batch_size', default=128, help='training batch size.')
-    parser.add_argument('--test_batch_size', default=120, help='testing batch size.')
+    parser.add_argument('--dropout_rate', default=0.5, type=float, help='dropout rate.')
+    parser.add_argument('--learning_rate', default=0.1, type=float, help='base value of learning rate.')
+    parser.add_argument('--lpr_max_len', default=8, type=int, help='license plate number max length.')
+    parser.add_argument('--train_batch_size', default=128, type=int, help='training batch size.')
+    parser.add_argument('--test_batch_size', default=120, type=int, help='testing batch size.')
     parser.add_argument('--phase_train', default=True, type=bool, help='train or test phase flag.')
     parser.add_argument('--num_workers', default=8, type=int, help='Number of workers used in dataloading')
-    parser.add_argument('--cuda', default=True, type=bool, help='Use cuda to train model')
+    parser.add_argument('--cuda', action='store_true', help='Use cuda to train model')
     parser.add_argument('--resume_epoch', default=0, type=int, help='resume iter for retraining')
     parser.add_argument('--save_interval', default=2000, type=int, help='interval for save model state dict')
     parser.add_argument('--test_interval', default=2000, type=int, help='interval for evaluate')
@@ -68,7 +71,7 @@ def get_parser():
     parser.add_argument('--lr_schedule', default=[4, 8, 12, 14, 16], help='schedule for learning rate.')
     parser.add_argument('--save_folder', default='./weights/', help='Location to save checkpoint models')
     # parser.add_argument('--pretrained_model', default='./weights/Final_LPRNet_model.pth', help='pretrained base model')
-    parser.add_argument('--pretrained_model', default='', help='pretrained base model')
+    parser.add_argument('--pretrained_model', action="store_true", help='pretrained base model')
 
     args = parser.parse_args()
 
@@ -80,10 +83,10 @@ def collate_fn(batch):
     lengths = []
     for _, sample in enumerate(batch):
         img, label, length = sample
-        imgs.append(torch.from_numpy(img))
+        imgs.append(img)
         labels.extend(label)
         lengths.append(length)
-    labels = np.asarray(labels).flatten().astype(np.int)
+    labels = np.asarray(labels).flatten().astype(np.int8)
 
     return (torch.stack(imgs, 0), torch.from_numpy(labels), lengths)
 
@@ -97,8 +100,8 @@ def train():
     if not os.path.exists(args.save_folder):
         os.mkdir(args.save_folder)
 
-    lprnet = build_lprnet(lpr_max_len=args.lpr_max_len, phase=args.phase_train, class_num=len(CHARS), dropout_rate=args.dropout_rate)
-    device = torch.device("cuda:0" if args.cuda else "cpu")
+    lprnet = build_lprnet(lpr_max_len=args.lpr_max_len, train=args.phase_train, class_num=len(CHARS), dropout_rate=args.dropout_rate)
+    device = "cuda" if args.cuda and torch.cuda.is_available() else "cpu"
     lprnet.to(device)
     print("Successful to build network!")
 
@@ -129,10 +132,13 @@ def train():
     #                       momentum=args.momentum, weight_decay=args.weight_decay)
     optimizer = optim.RMSprop(lprnet.parameters(), lr=args.learning_rate, alpha = 0.9, eps=1e-08,
                          momentum=args.momentum, weight_decay=args.weight_decay)
-    train_img_dirs = os.path.expanduser(args.train_img_dirs)
-    test_img_dirs = os.path.expanduser(args.test_img_dirs)
-    train_dataset = LPRDataLoader(train_img_dirs.split(','), args.img_size, args.lpr_max_len)
-    test_dataset = LPRDataLoader(test_img_dirs.split(','), args.img_size, args.lpr_max_len)
+    # train_img_dirs = os.path.expanduser(args.train_img_dirs)
+    # test_img_dirs = os.path.expanduser(args.test_img_dirs)
+    ds = LPRDataset(args.train_img_dirs, max_samples=5000)
+    train_idx, test_idx = train_test_split(np.arange(len(ds)), test_size=0.2, random_state=42, shuffle=True)
+    train_dataset = Subset(ds, train_idx)
+    test_dataset = Subset(ds, test_idx)
+    # test_dataset = LPRDataset(test_img_dirs, args.img_size, args.lpr_max_len)
 
     epoch_size = len(train_dataset) // args.train_batch_size
     max_iter = args.max_epoch * epoch_size
@@ -143,8 +149,9 @@ def train():
         start_iter = args.resume_epoch * epoch_size
     else:
         start_iter = 0
-
-    for iteration in range(start_iter, max_iter):
+    
+    print(start_iter, max_iter)
+    for iteration in tqdm(range(start_iter, max_iter)):
         if iteration % epoch_size == 0:
             # create batch iterator
             batch_iterator = iter(DataLoader(train_dataset, args.train_batch_size, shuffle=True, num_workers=args.num_workers, collate_fn=collate_fn))
@@ -168,7 +175,7 @@ def train():
         # update lr
         lr = adjust_learning_rate(optimizer, epoch, args.learning_rate, args.lr_schedule)
 
-        if args.cuda:
+        if device == 'cuda':
             images = Variable(images, requires_grad=False).cuda()
             labels = Variable(labels, requires_grad=False).cuda()
         else:
@@ -187,6 +194,7 @@ def train():
         loss = ctc_loss(log_probs, labels, input_lengths=input_lengths, target_lengths=target_lengths)
         if loss.item() == np.inf:
             continue
+        print(f"[LOSS] Loss: {loss.item()}")
         loss.backward()
         optimizer.step()
         loss_val += loss.item()
@@ -197,7 +205,7 @@ def train():
                   'Batch time: %.4f sec. ||' % (end_time - start_time) + 'LR: %.8f' % (lr))
     # final test
     print("Final test Accuracy:")
-    Greedy_Decode_Eval(lprnet, test_dataset, args)
+    Greedy_Decode_Eval(lprnet, train_dataset, args)
 
     # save final parameters
     torch.save(lprnet.state_dict(), args.save_folder + 'Final_LPRNet_model.pth')
@@ -258,7 +266,7 @@ def Greedy_Decode_Eval(Net, datasets, args):
             else:
                 Tn_2 += 1
 
-    Acc = Tp * 1.0 / (Tp + Tn_1 + Tn_2)
+    Acc = Tp * 1.0 / (Tp + Tn_1 + Tn_2 + 1e-6)
     print("[Info] Test Accuracy: {} [{}:{}:{}:{}]".format(Acc, Tp, Tn_1, Tn_2, (Tp+Tn_1+Tn_2)))
     t2 = time.time()
     print("[Info] Test Speed: {}s 1/{}]".format((t2 - t1) / len(datasets), len(datasets)))

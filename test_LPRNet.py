@@ -10,6 +10,7 @@ from data.load_data import CHARS, CHARS_DICT, LPRDataLoader
 from PIL import Image, ImageDraw, ImageFont
 from model.LPRNet import build_lprnet
 # import torch.backends.cudnn as cudnn
+from sklearn.model_selection import train_test_split
 from torch.autograd import Variable
 import torch.nn.functional as F
 from torch.utils.data import *
@@ -45,7 +46,7 @@ def collate_fn(batch):
     lengths = []
     for _, sample in enumerate(batch):
         img, label, length = sample
-        imgs.append(torch.from_numpy(img))
+        imgs.append(img)
         labels.extend(label)
         lengths.append(length)
     labels = np.asarray(labels).flatten().astype(np.float32)
@@ -54,20 +55,19 @@ def collate_fn(batch):
 
 def test():
     args = get_parser()
-
     lprnet = build_lprnet(lpr_max_len=args.lpr_max_len, phase=args.phase_train, class_num=len(CHARS), dropout_rate=args.dropout_rate)
-    device = torch.device("cuda:0" if args.cuda else "cpu")
+    device = "cpu" # torch.device("cuda:0" if args.cuda else "cpu")
     lprnet.to(device)
     print("Successful to build network!")
 
     # load pretrained model
     if args.pretrained_model:
-        lprnet.load_state_dict(torch.load(args.pretrained_model))
+        lprnet.load_state_dict(torch.load(args.pretrained_model, map_location="cpu"))
         print("load pretrained model successful!")
     else:
         print("[Error] Can't found pretrained mode, please check!")
         return False
-
+    
     test_img_dirs = os.path.expanduser(args.test_img_dirs)
     test_dataset = LPRDataLoader(test_img_dirs.split(','), args.img_size, args.lpr_max_len)
     try:
@@ -96,7 +96,7 @@ def Greedy_Decode_Eval(Net, datasets, args):
         targets = np.array([el.numpy() for el in targets])
         imgs = images.numpy().copy()
 
-        if args.cuda:
+        if device == 'cuda:0':
             images = Variable(images.cuda())
         else:
             images = Variable(images)
