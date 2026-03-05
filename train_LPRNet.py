@@ -10,6 +10,8 @@ from data.load_data import CHARS, CHARS_DICT, LPRDataset
 from model.LPRNet import build_lprnet
 # import torch.backends.cudnn as cudnn
 from sklearn.model_selection import train_test_split
+from torchinfo import summary
+from dataclasses import dataclass
 from tqdm.auto import tqdm
 from torch.utils.data import Subset
 from torch.autograd import Variable
@@ -20,8 +22,13 @@ import torch.nn as nn
 import numpy as np
 import argparse
 import torch
+import yaml
 import time
 import os
+
+@dataclass
+class Trainer:
+    config: argparse.Namespace
 
 def sparse_tuple_for_ctc(T_length, lengths):
     input_lengths = []
@@ -51,31 +58,14 @@ def adjust_learning_rate(optimizer, cur_epoch, base_lr, lr_schedule):
 
 def get_parser():
     parser = argparse.ArgumentParser(description='parameters to train net')
-    parser.add_argument('--max_epoch', default=15, type=int, help='epoch to train the network')
-    parser.add_argument('--img_size', default=[94, 24], help='the image size')
-    parser.add_argument('--train_img_dirs', default="~/workspace/trainMixLPR", help='the train images path')
-    parser.add_argument('--test_img_dirs', default="~/workspace/testMixLPR", help='the test images path')
-    parser.add_argument('--dropout_rate', default=0.5, type=float, help='dropout rate.')
-    parser.add_argument('--learning_rate', default=0.1, type=float, help='base value of learning rate.')
-    parser.add_argument('--lpr_max_len', default=8, type=int, help='license plate number max length.')
-    parser.add_argument('--train_batch_size', default=128, type=int, help='training batch size.')
-    parser.add_argument('--test_batch_size', default=120, type=int, help='testing batch size.')
-    parser.add_argument('--phase_train', default=True, type=bool, help='train or test phase flag.')
-    parser.add_argument('--num_workers', default=8, type=int, help='Number of workers used in dataloading')
-    parser.add_argument('--cuda', action='store_true', help='Use cuda to train model')
-    parser.add_argument('--resume_epoch', default=0, type=int, help='resume iter for retraining')
-    parser.add_argument('--save_interval', default=2000, type=int, help='interval for save model state dict')
-    parser.add_argument('--test_interval', default=2000, type=int, help='interval for evaluate')
-    parser.add_argument('--momentum', default=0.9, type=float, help='momentum')
-    parser.add_argument('--weight_decay', default=2e-5, type=float, help='Weight decay for SGD')
-    parser.add_argument('--lr_schedule', default=[4, 8, 12, 14, 16], help='schedule for learning rate.')
-    parser.add_argument('--save_folder', default='./weights/', help='Location to save checkpoint models')
-    # parser.add_argument('--pretrained_model', default='./weights/Final_LPRNet_model.pth', help='pretrained base model')
-    parser.add_argument('--pretrained_model', action="store_true", help='pretrained base model')
-
+    parser.add_argument('--config', default='./config/train_config.yaml', help='path to configuration file')
     args = parser.parse_args()
+    
+    # Load config from YAML
+    with open(args.config, 'r') as f:
+        config = yaml.safe_load(f)
 
-    return args
+    return argparse.Namespace(**config)
 
 def collate_fn(batch):
     imgs = []
@@ -100,14 +90,14 @@ def train():
     if not os.path.exists(args.save_folder):
         os.mkdir(args.save_folder)
 
-    lprnet = build_lprnet(lpr_max_len=args.lpr_max_len, train=args.phase_train, class_num=len(CHARS), dropout_rate=args.dropout_rate)
+    lprnet = build_lprnet(lpr_max_len=args.lpr_max_len, train=True, class_num=len(CHARS), dropout_rate=args.dropout_rate)
     device = "cuda" if args.cuda and torch.cuda.is_available() else "cpu"
     lprnet.to(device)
     print("Successful to build network!")
 
     # load pretrained model
     if args.pretrained_model:
-        lprnet.load_state_dict(torch.load(args.pretrained_model))
+        lprnet.load_state_dict(torch.load(args.pretrained_model, weights_only=True))
         print("load pretrained model successful!")
     else:
         def xavier(param):
@@ -203,6 +193,7 @@ def train():
             print('Epoch:' + repr(epoch) + ' || epochiter: ' + repr(iteration % epoch_size) + '/' + repr(epoch_size)
                   + '|| Totel iter ' + repr(iteration) + ' || Loss: %.4f||' % (loss.item()) +
                   'Batch time: %.4f sec. ||' % (end_time - start_time) + 'LR: %.8f' % (lr))
+    torch.save(lprnet.state_dict(), args.save_folder+"last.pth")
     # final test
     print("Final test Accuracy:")
     Greedy_Decode_Eval(lprnet, train_dataset, args)
@@ -219,7 +210,7 @@ def Greedy_Decode_Eval(Net, datasets, args):
     Tn_1 = 0
     Tn_2 = 0
     t1 = time.time()
-    for i in range(epoch_size):
+    for _ in range(epoch_size):
         # load train data
         images, labels, lengths = next(batch_iterator)
         start = 0
@@ -230,7 +221,7 @@ def Greedy_Decode_Eval(Net, datasets, args):
             start += length
         targets = np.array([el.numpy() for el in targets])
 
-        if args.cuda:
+        if args.cuda and torch.cuda.is_available():
             images = Variable(images.cuda())
         else:
             images = Variable(images)
@@ -257,11 +248,14 @@ def Greedy_Decode_Eval(Net, datasets, args):
                 no_repeat_blank_label.append(c)
                 pre_c = c
             preb_labels.append(no_repeat_blank_label)
+        
         for i, label in enumerate(preb_labels):
+            print(f"[PRED_LABEL] {label}")
             if len(label) != len(targets[i]):
                 Tn_1 += 1
+                # print(f"[PRED] Predict: {''.join([CHARS[int(x)] for x in list(label)])} | Target: {''.join([CHARS[int(x)] for x in list(targets[i])])}")
                 continue
-            if (np.asarray(targets[i]) == np.asarray(label)).all():
+            if (np.asarray(targets[i], dtype=np.int8) == np.asarray(label, dtype=np.int8)).all():
                 Tp += 1
             else:
                 Tn_2 += 1
