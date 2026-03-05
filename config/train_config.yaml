@@ -3,7 +3,7 @@ max_epoch: 0
 resume_epoch: 0
 
 # Model parameters
-lpr_max_len: 8
+lpr_max_len: 7
 dropout_rate: 0.5
 class_num: 37  # len(CHARS)
 
@@ -18,20 +18,17 @@ num_workers: 0
 
 # Optimizer parameters
 learning_rate: 0.01
-momentum: 0.9
-weight_decay: 0.00002
-optimizer: "RMSprop"  # or "SGD"
-rmsprop_alpha: 0.9
-rmsprop_eps: 0.00000001
+weight_decay: 0.00005
+optimizer: "Adam"
 
-# Learning rate schedule
-lr_schedule: [4, 8, 12, 14, 16]
+# LR Scheduler
+gamma: 0.95
 
 # Checkpoint and evaluation
 save_interval: 2000
 test_interval: 2000
 save_folder: "./weights/"
-pretrained_model: "./weights/last.pth"  # or path to pretrained model
+pretrained_model: "weights\\last.pth"  # or path to pretrained model
 
 # Device
 cuda: true

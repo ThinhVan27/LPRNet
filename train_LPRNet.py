@@ -97,7 +97,8 @@ def train():
 
     # load pretrained model
     if args.pretrained_model:
-        lprnet.load_state_dict(torch.load(args.pretrained_model, weights_only=True))
+        lprnet.load_state_dict(torch.load(args.pretrained_model, weights_only=True, map_location=torch.device(device)))
+        
         print("load pretrained model successful!")
     else:
         def xavier(param):
@@ -118,12 +119,11 @@ def train():
         print("initial net weights successful!")
 
     # define optimizer
-    # optimizer = optim.SGD(lprnet.parameters(), lr=args.learning_rate,
-    #                       momentum=args.momentum, weight_decay=args.weight_decay)
-    optimizer = optim.RMSprop(lprnet.parameters(), lr=args.learning_rate, alpha = 0.9, eps=1e-08,
-                         momentum=args.momentum, weight_decay=args.weight_decay)
-    # train_img_dirs = os.path.expanduser(args.train_img_dirs)
-    # test_img_dirs = os.path.expanduser(args.test_img_dirs)
+    optimizer = optim.Adam(lprnet.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay)
+
+    # define lr scheduler
+    scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer=optimizer,
+                                                       gamma=args.gamma)
     ds = LPRDataset(args.train_img_dirs, max_samples=5000)
     train_idx, test_idx = train_test_split(np.arange(len(ds)), test_size=0.2, random_state=42, shuffle=True)
     train_dataset = Subset(ds, train_idx)
@@ -163,7 +163,7 @@ def train():
         # get ctc parameters
         input_lengths, target_lengths = sparse_tuple_for_ctc(T_length, lengths)
         # update lr
-        lr = adjust_learning_rate(optimizer, epoch, args.learning_rate, args.lr_schedule)
+        # lr = adjust_learning_rate(optimizer, epoch, args.learning_rate, args.lr_schedule)
 
         if device == 'cuda':
             images = Variable(images, requires_grad=False).cuda()
@@ -181,6 +181,7 @@ def train():
         # print(log_probs.shape)
         # backprop
         optimizer.zero_grad()
+        scheduler.step()
         loss = ctc_loss(log_probs, labels, input_lengths=input_lengths, target_lengths=target_lengths)
         if loss.item() == np.inf:
             continue
@@ -192,11 +193,11 @@ def train():
         if iteration % 20 == 0:
             print('Epoch:' + repr(epoch) + ' || epochiter: ' + repr(iteration % epoch_size) + '/' + repr(epoch_size)
                   + '|| Totel iter ' + repr(iteration) + ' || Loss: %.4f||' % (loss.item()) +
-                  'Batch time: %.4f sec. ||' % (end_time - start_time) + 'LR: %.8f' % (lr))
+                  'Batch time: %.4f sec. ||' % (end_time - start_time) + 'LR: %.8f' % (optimizer.param_groups[0]['lr']))
     torch.save(lprnet.state_dict(), args.save_folder+"last.pth")
     # final test
     print("Final test Accuracy:")
-    Greedy_Decode_Eval(lprnet, train_dataset, args)
+    Greedy_Decode_Eval(lprnet, test_dataset, args)
 
     # save final parameters
     torch.save(lprnet.state_dict(), args.save_folder + 'Final_LPRNet_model.pth')
@@ -204,22 +205,24 @@ def train():
 def Greedy_Decode_Eval(Net, datasets, args):
     # TestNet = Net.eval()
     epoch_size = len(datasets) // args.test_batch_size
-    batch_iterator = iter(DataLoader(datasets, args.test_batch_size, shuffle=True, num_workers=args.num_workers, collate_fn=collate_fn))
+    batch_iterator = iter(DataLoader(datasets, args.test_batch_size, shuffle=False, num_workers=args.num_workers, collate_fn=collate_fn))
 
     Tp = 0
     Tn_1 = 0
     Tn_2 = 0
     t1 = time.time()
+    
+    cnt = []
     for _ in range(epoch_size):
         # load train data
         images, labels, lengths = next(batch_iterator)
         start = 0
         targets = []
-        for length in lengths:
+        for i, length in enumerate(lengths):
             label = labels[start:start+length]
             targets.append(label)
             start += length
-        targets = np.array([el.numpy() for el in targets])
+        targets = np.array([el[:7].numpy() for el in targets])
 
         if args.cuda and torch.cuda.is_available():
             images = Variable(images.cuda())
@@ -250,7 +253,6 @@ def Greedy_Decode_Eval(Net, datasets, args):
             preb_labels.append(no_repeat_blank_label)
         
         for i, label in enumerate(preb_labels):
-            print(f"[PRED_LABEL] {label}")
             if len(label) != len(targets[i]):
                 Tn_1 += 1
                 # print(f"[PRED] Predict: {''.join([CHARS[int(x)] for x in list(label)])} | Target: {''.join([CHARS[int(x)] for x in list(targets[i])])}")

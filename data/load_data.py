@@ -25,7 +25,7 @@ class LPRDataset(Dataset):
     def __init__(self,
                  root: str,
                  train: bool = True,
-                 lpr_max_len: int = 8,
+                 lpr_max_len: int = 7,
                  transform: Optional[Callable] = None,
                  max_samples: int = -1):
         if not os.path.exists(root):
