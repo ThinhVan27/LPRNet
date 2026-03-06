@@ -12,8 +12,8 @@ train_img_dirs: "data\\train"
 test_img_dirs: "~/workspace/testMixLPR"
 
 # Training configuration
-train_batch_size: 128
-test_batch_size: 120
+train_batch_size: 256
+test_batch_size: 128
 num_workers: 0
 
 # Optimizer parameters

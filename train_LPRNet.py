@@ -40,22 +40,6 @@ def sparse_tuple_for_ctc(T_length, lengths):
 
     return tuple(input_lengths), tuple(target_lengths)
 
-def adjust_learning_rate(optimizer, cur_epoch, base_lr, lr_schedule):
-    """
-    Sets the learning rate
-    """
-    lr = 0
-    for i, e in enumerate(lr_schedule):
-        if cur_epoch < e:
-            lr = base_lr * (0.1 ** i)
-            break
-    if lr == 0:
-        lr = base_lr
-    for param_group in optimizer.param_groups:
-        param_group['lr'] = lr
-
-    return lr
-
 def get_parser():
     parser = argparse.ArgumentParser(description='parameters to train net')
     parser.add_argument('--config', default='./config/train_config.yaml', help='path to configuration file')
@@ -124,7 +108,7 @@ def train():
     # define lr scheduler
     scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer=optimizer,
                                                        gamma=args.gamma)
-    ds = LPRDataset(args.train_img_dirs, max_samples=5000)
+    ds = LPRDataset(args.train_img_dirs)
     train_idx, test_idx = train_test_split(np.arange(len(ds)), test_size=0.2, random_state=42, shuffle=True)
     train_dataset = Subset(ds, train_idx)
     test_dataset = Subset(ds, test_idx)
@@ -140,7 +124,7 @@ def train():
     else:
         start_iter = 0
     
-    print(start_iter, max_iter)
+    val_accs = []
     for iteration in tqdm(range(start_iter, max_iter)):
         if iteration % epoch_size == 0:
             # create batch iterator
@@ -152,7 +136,8 @@ def train():
             torch.save(lprnet.state_dict(), args.save_folder + 'LPRNet_' + '_iteration_' + repr(iteration) + '.pth')
 
         if (iteration + 1) % args.test_interval == 0:
-            Greedy_Decode_Eval(lprnet, test_dataset, args)
+            acc = Greedy_Decode_Eval(lprnet, test_dataset, args)
+
             # lprnet.train() # should be switch to train mode
 
         start_time = time.time()
@@ -181,13 +166,13 @@ def train():
         # print(log_probs.shape)
         # backprop
         optimizer.zero_grad()
-        scheduler.step()
         loss = ctc_loss(log_probs, labels, input_lengths=input_lengths, target_lengths=target_lengths)
         if loss.item() == np.inf:
             continue
         print(f"[LOSS] Loss: {loss.item()}")
         loss.backward()
         optimizer.step()
+        scheduler.step()
         loss_val += loss.item()
         end_time = time.time()
         if iteration % 20 == 0:
@@ -267,6 +252,7 @@ def Greedy_Decode_Eval(Net, datasets, args):
     t2 = time.time()
     print("[Info] Test Speed: {}s 1/{}]".format((t2 - t1) / len(datasets), len(datasets)))
 
+    return Acc
 
 if __name__ == "__main__":
     train()
