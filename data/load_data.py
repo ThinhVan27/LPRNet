@@ -62,6 +62,7 @@ class LPRDataset(Dataset):
         if not self.train:
             return img
         target = self._read_annotation(track_dir)
+        target = target[:self.lpr_max_len]
         encoded_target = [CHARS_DICT.get(c, len(CHARS) - 1) for c in target]
         return img, encoded_target, len(target)
     

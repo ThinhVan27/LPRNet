@@ -23,27 +23,27 @@ class LPRNet(nn.Module):
         self.lpr_max_len = lpr_max_len
         self.class_num = class_num
         self.backbone = nn.Sequential(
-            nn.Conv2d(in_channels=3, out_channels=64, kernel_size=3, stride=1), # 0, 64x28x58
-            nn.BatchNorm2d(num_features=64), # 64x28x58
+            nn.Conv2d(in_channels=3, out_channels=64, kernel_size=3, stride=1), # 0
+            nn.BatchNorm2d(num_features=64),
             nn.ReLU(),  # 2
-            nn.MaxPool3d(kernel_size=(1, 3, 3), stride=(1, 1, 1)), # 64x26x56
-            small_basic_block(ch_in=64, ch_out=128),    # *** 4 *** # 128x26x56
-            nn.BatchNorm2d(num_features=128), # 128x26x56
+            nn.MaxPool3d(kernel_size=(1, 3, 3), stride=(1, 1, 1)),
+            small_basic_block(ch_in=64, ch_out=128),    # *** 4 ***
+            nn.BatchNorm2d(num_features=128),
             nn.ReLU(),  # 6
-            nn.MaxPool3d(kernel_size=(1, 3, 3), stride=(2, 1, 2)), # 64x24x27
-            small_basic_block(ch_in=64, ch_out=256),   # 8# 256x24x27
+            nn.MaxPool3d(kernel_size=(1, 3, 3), stride=(2, 1, 2)),
+            small_basic_block(ch_in=64, ch_out=256),   # 8
             nn.BatchNorm2d(num_features=256),
             nn.ReLU(),  # 10
-            small_basic_block(ch_in=256, ch_out=256),   # *** 11 *** 256x24x27
-            nn.BatchNorm2d(num_features=256),   # 12 
-            nn.ReLU(), # 13
-            nn.MaxPool3d(kernel_size=(1, 3, 3), stride=(4, 1, 1)),  # 14 64x22x25
+            small_basic_block(ch_in=256, ch_out=256),   # *** 11 ***
+            nn.BatchNorm2d(num_features=256),   # 12
+            nn.ReLU(),
+            nn.MaxPool3d(kernel_size=(1, 3, 3), stride=(4, 1, 2)),  # 14
             nn.Dropout(dropout_rate),
-            nn.Conv2d(in_channels=64, out_channels=256, kernel_size=(4, 4), stride=1),  # 16 256x19x22
+            nn.Conv2d(in_channels=64, out_channels=256, kernel_size=(1, 4), stride=1),  # 16
             nn.BatchNorm2d(num_features=256),
             nn.ReLU(),  # 18
             nn.Dropout(dropout_rate),
-            nn.Conv2d(in_channels=256, out_channels=class_num, kernel_size=(16, 1), stride=1), # 20 37x4x22
+            nn.Conv2d(in_channels=256, out_channels=class_num, kernel_size=(13, 1), stride=1), # 20
             nn.BatchNorm2d(num_features=class_num),
             nn.ReLU(),  # *** 22 ***
         )
@@ -63,14 +63,11 @@ class LPRNet(nn.Module):
                 keep_features.append(x)
 
         global_context = list()
-        pool_lst = [
-            nn.AvgPool2d(kernel_size=(6, 15), stride=(6, 2)),
-            nn.AvgPool2d(kernel_size=(6, 13), stride=(6, 2)),
-            nn.AvgPool2d(kernel_size=(5, 6), stride=(5, 1))
-        ]
         for i, f in enumerate(keep_features):
-            if i < 3:
-                f = pool_lst[i](f)
+            if i in [0, 1]:
+                f = nn.AvgPool2d(kernel_size=5, stride=5)(f)
+            if i in [2]:
+                f = nn.AvgPool2d(kernel_size=(4, 10), stride=(4, 2))(f)
             f_pow = torch.pow(f, 2)
             f_mean = torch.mean(f_pow)
             f = torch.div(f, f_mean)

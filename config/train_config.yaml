@@ -8,7 +8,7 @@ dropout_rate: 0.5
 class_num: 37  # len(CHARS)
 
 # Dataset paths
-train_img_dirs: "data\\train"
+train_img_dirs: "data/train"
 test_img_dirs: "~/workspace/testMixLPR"
 
 # Training configuration
@@ -17,18 +17,19 @@ test_batch_size: 128
 num_workers: 0
 
 # Optimizer parameters
-learning_rate: 0.01
+learning_rate: 0.1
+momentum: 0.9
 weight_decay: 0.00005
 optimizer: "Adam"
 
 # LR Scheduler
+lr_schedule: [4, 8, 12, 14, 16]
 gamma: 0.95
 
 # Checkpoint and evaluation
-save_interval: 2000
-test_interval: 2000
+save_interval: 200
+test_interval: 200
 save_folder: "./weights/"
-pretrained_model: "weights\\last.pth"  # or path to pretrained model
-
+pretrained_model: "weights/LPRNet__iteration_4000.pth"
 # Device
 cuda: true

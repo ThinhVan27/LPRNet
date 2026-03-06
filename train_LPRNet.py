@@ -26,6 +26,9 @@ import yaml
 import time
 import os
 
+torch.manual_seed(42)
+torch.cuda.manual_seed(42)
+
 @dataclass
 class Trainer:
     config: argparse.Namespace
@@ -50,6 +53,22 @@ def get_parser():
         config = yaml.safe_load(f)
 
     return argparse.Namespace(**config)
+
+def adjust_learning_rate(optimizer, cur_epoch, base_lr, lr_schedule):
+    """
+    Sets the learning rate
+    """
+    lr = 0
+    for i, e in enumerate(lr_schedule):
+        if cur_epoch < e:
+            lr = base_lr * (0.1 ** i)
+            break
+    if lr == 0:
+        lr = base_lr
+    for param_group in optimizer.param_groups:
+        param_group['lr'] = lr
+
+    return lr
 
 def collate_fn(batch):
     imgs = []
@@ -103,12 +122,12 @@ def train():
         print("initial net weights successful!")
 
     # define optimizer
-    optimizer = optim.Adam(lprnet.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay)
+    optimizer = optim.RMSprop(lprnet.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay, momentum=args.momentum)
 
     # define lr scheduler
-    scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer=optimizer,
-                                                       gamma=args.gamma)
-    ds = LPRDataset(args.train_img_dirs)
+    # scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer=optimizer, gamma=args.gamma)
+    
+    ds = LPRDataset(args.train_img_dirs, max_samples=1000)
     train_idx, test_idx = train_test_split(np.arange(len(ds)), test_size=0.2, random_state=42, shuffle=True)
     train_dataset = Subset(ds, train_idx)
     test_dataset = Subset(ds, test_idx)
@@ -148,7 +167,7 @@ def train():
         # get ctc parameters
         input_lengths, target_lengths = sparse_tuple_for_ctc(T_length, lengths)
         # update lr
-        # lr = adjust_learning_rate(optimizer, epoch, args.learning_rate, args.lr_schedule)
+        lr = adjust_learning_rate(optimizer, epoch, args.learning_rate, args.lr_schedule)
 
         if device == 'cuda':
             images = Variable(images, requires_grad=False).cuda()
@@ -172,7 +191,7 @@ def train():
         print(f"[LOSS] Loss: {loss.item()}")
         loss.backward()
         optimizer.step()
-        scheduler.step()
+        # scheduler.step()
         loss_val += loss.item()
         end_time = time.time()
         if iteration % 20 == 0:
