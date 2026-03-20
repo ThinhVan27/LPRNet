@@ -1,0 +1,11 @@
+opencv-python-headless
+torch
+torchvision
+matplotlib
+kagglehub
+scikit-learn
+pandas
+matplotlib
+torchinfo
+wandb
+numpy==1.26.4
