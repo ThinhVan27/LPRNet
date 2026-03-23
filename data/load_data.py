@@ -42,7 +42,6 @@ class LPRDataset(Dataset):
             self.transform = test_transforms
         self.n_samples = 0
         self.track_path = []
-<<<<<<< HEAD
         for sc in sorted(os.listdir(self.root)):
             for type in sorted(os.listdir(os.path.join(self.root, sc))):
                 track_root = os.path.join(self.root, sc, type)
@@ -53,34 +52,15 @@ class LPRDataset(Dataset):
     
     def __len__(self):
         return min(self.n_samples*5, self.max_samples) if self.max_samples > 0 else self.n_samples*5
-=======
-        for sc in os.listdir(self.root):
-            for type in os.listdir(os.path.join(self.root, sc)):
-                track_root = os.path.join(self.root, sc, type)
-                self.n_samples += len(os.listdir(track_root))
-                self.track_path.extend([os.path.join(track_root, track_name) for track_name in os.listdir(track_root)])
-        self._valid_dataset()
-        self.chars = CHARS
-    
-    def __len__(self):
-        return min(self.n_samples, self.max_samples) if self.max_samples > 0 else self.n_samples
->>>>>>> a1a4002212b36a4c9c855ad3c13aca62f11513e0
     
     def __getitem__(self, idx: int):
         if idx < 0:
             raise ValueError(f"Index must be non-negative integer")
-<<<<<<< HEAD
         track_idx = idx // 5
         lp_idx = idx % 5 + 1
         track_dir = self.track_path[track_idx]
         img_path = os.path.join(track_dir, f"hr-00{lp_idx}.png" if f"hr-00{lp_idx}.png" in sorted(os.listdir(track_dir)) else f"hr-00{lp_idx}.jpg")
-=======
-        track_dir = self.track_path[idx]
-        img_path = os.path.join(track_dir, "hr-001.png" if "hr-001.png" in os.listdir(track_dir) else "hr-001.jpg")
->>>>>>> a1a4002212b36a4c9c855ad3c13aca62f11513e0
         img = self.transform(Image.open(img_path))
-        if not self.train:
-            return img
         target = self._read_annotation(track_dir)
         target = target[:self.lpr_max_len]
         encoded_target = [CHARS_DICT.get(c, len(CHARS) - 1) for c in target]
@@ -99,7 +79,9 @@ class LPRDataset(Dataset):
     
     def _valid_dataset(self):
         for i in range(len(self)):
-            try:
-                self[i]
-            except Exception as e:
-                raise e
+            self[i]
+    
+    def get_track_path(self, i: int = 0):
+        if not (i >= 0 and i < self.n_samples):
+            raise ValueError(f"Track {i} is out of dataset range!")
+        return self.track_path[i]

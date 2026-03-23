@@ -1,68 +1,24 @@
-# General
-# experiment:
-#   name: resnet18_cifar10_v1
-#   description: Baseline ResNet18 on CIFAR10 with strong aug
-#   seed: 42
-#   device: cuda
+# Model parameters
+lpr_max_len: 7
+dropout_rate: 0.5
+T_length: 20
 
-# Data
-data:
-  name: ICPR
-  train_root: ./data/train
-  test_root: ./data/test
-  batch_size: 128
-  num_workers: 4
-  pin_memory: true
-  image_size: 32
-  num_classes: 10
+# Dataset paths
+test_img_dirs: "data/test"
+num_workers: 8
 
-# Augmentation
-augmentation:
-  train:
-    random_resized_crop:
-      scale: [0.8, 1.0]
-    horizontal_flip: 0.5
-    color_jitter:
-      brightness: 0.3
-      contrast: 0.3
-      saturation: 0.3
-      hue: 0.15
-    random_erasing: 0.5
-  val:
-    resize: 32
-    center_crop: 32
+# Training configuration
+test_batch_size: 128
 
-# Model
-# model:
-#   architecture: resnet18
-#   pretrained: false  # CIFAR10 nhỏ, thường không pretrained ImageNet
-#   num_classes: 10
+pretrained_model: "weights/best.pth"
 
-# Training
-training:
-  epochs: 100
-  optimizer:
-    type: AdamW
-    lr: 0.001
-    weight_decay: 0.0005
-  scheduler:
-    type: CosineAnnealingLR
-    T_max: 100
-  loss: CrossEntropyLoss
-  gradient_clip: 1.0
+# Device
+cuda: true
 
-# Evaluation
-evaluation:
-  metrics: [accuracy, top5_accuracy]
-  monitor: val_accuracy
-  mode: max
+# wandb
+entity: "vovanthinhv225-ho-chi-minh-city-university-of-technology"
+project: "lprnet"
 
-# Paths
-paths:
-  checkpoints: ./checkpoints/${experiment.name}
-  logs: ./logs/${experiment.name}
-
-# Logging
-logging:
-  use_wandb: true
-  wandb_project: my-dl-project
+# Beam Search
+topk: 5
+mode: "beam"

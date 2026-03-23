@@ -1,35 +1,44 @@
 # Training parameters
-max_epoch: 0
-resume_epoch: 0
+max_epoch: 500
 
 # Model parameters
 lpr_max_len: 7
 dropout_rate: 0.5
-class_num: 37  # len(CHARS)
+T_length: 20
 
 # Dataset paths
 train_img_dirs: "data/train"
-test_img_dirs: "~/workspace/testMixLPR"
+test_img_dirs: "data/test"
+num_workers: 8
 
 # Training configuration
-train_batch_size: 256
+train_batch_size: 128
 test_batch_size: 128
-num_workers: 0
 
 # Optimizer parameters
-learning_rate: 0.1
-momentum: 0.9
+learning_rate: 0.0001
+momentum: 0.95
 weight_decay: 0.00005
-optimizer: "Adam"
 
 # LR Scheduler
-lr_schedule: [4, 8, 12, 14, 16]
-gamma: 0.95
+gamma: 0.8
 
 # Checkpoint and evaluation
 save_interval: 200
 test_interval: 200
 save_folder: "./weights/"
-pretrained_model: "weights/LPRNet__iteration_4000.pth"
+pretrained_model: # "./weights_all/LPRNet__iteration_88000.pth" # "weights/LPRNet__iteration_876000.pth"
+
 # Device
 cuda: true
+
+# wandb
+entity: "vovanthinhv225-ho-chi-minh-city-university-of-technology"
+project: "lprnet"
+
+# Beam Search
+topk: 5
+mode: "beam"
+
+# Test
+test: true

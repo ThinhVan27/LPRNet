@@ -9,5 +9,8 @@ venv/
 
 # Checkpoints
 *.pth
+!best.pth
 
 wandb/
+
+
