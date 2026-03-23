@@ -53,7 +53,7 @@ def test():
     print("[INFO] Load data successful!")
     
     # Test
-    # test_acc, test_loss = decode(lprnet, test_dataset, args, valid=False)
+    test_acc, test_loss = decode(lprnet, test_dataset, args, valid=False)
     show(lprnet, test_dataset, args)
 
 
