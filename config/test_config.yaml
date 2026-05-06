@@ -5,12 +5,12 @@ T_length: 20
 
 # Dataset paths
 test_img_dirs: "data/test"
-num_workers: 8
+num_workers: 0
 
 # Training configuration
-test_batch_size: 128
+test_batch_size: 32
 
-pretrained_model: "weights/best.pth"
+pretrained_model: "weights/small_LPRNet/best.pth"
 
 # Device
 cuda: true
@@ -21,4 +21,4 @@ project: "lprnet"
 
 # Beam Search
 topk: 5
-mode: "beam"
+mode: "greedy"

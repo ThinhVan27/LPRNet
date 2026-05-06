@@ -61,7 +61,10 @@ class LPRDataset(Dataset):
         track_dir = self.track_path[track_idx]
         img_path = os.path.join(track_dir, f"hr-00{lp_idx}.png" if f"hr-00{lp_idx}.png" in sorted(os.listdir(track_dir)) else f"hr-00{lp_idx}.jpg")
         img = self.transform(Image.open(img_path))
-        target = self._read_annotation(track_dir)
+        if self.train:
+            target = self._read_annotation(track_dir)
+        else:
+            target = "A"*self.lpr_max_len
         target = target[:self.lpr_max_len]
         encoded_target = [CHARS_DICT.get(c, len(CHARS) - 1) for c in target]
         return img, encoded_target, len(target)

@@ -58,11 +58,10 @@ def sparse_tuple_for_ctc(T_length, lengths):
 
     return tuple(input_lengths), tuple(target_lengths)
 
-def decode(model, dataset, args: argparse.Namespace, valid=True):
+def decode(model, dataset, args: argparse.Namespace, dequan: False):
     Tp = 0 # Correct prediction
     Tn_1 = 0 # Wrong length
     Tn_2 = 0 # True length but not correct
-    t1 = time.time()
 
     loss = 0
     ctc_loss = nn.CTCLoss(blank=len(CHARS)-1, reduction='mean')
@@ -83,6 +82,8 @@ def decode(model, dataset, args: argparse.Namespace, valid=True):
 
         # Forward
         logits = model(images)
+        if dequan:
+            logits = logits.dequantize()
         # Calc loss
         input_lengths, target_lengths = sparse_tuple_for_ctc(args.T_length, lengths)
         log_probs = logits.permute(2, 0, 1).log_softmax(2)
@@ -103,13 +104,46 @@ def decode(model, dataset, args: argparse.Namespace, valid=True):
                 Tn_2 += 1
 
     acc = Tp * 1.0 / (Tp + Tn_1 + Tn_2 + 1e-6)
-    t2 = time.time()
-    phase = "Test" if not valid else "Validation"
-    print("[INFO] {} accuracy: {} [{}:{}:{}:{}] | {} loss: {}".format(phase, acc, Tp, Tn_1, Tn_2, (Tp+Tn_1+Tn_2), phase, loss))
-    print("[INFO] {} speed: {}s 1/{}]".format(phase, (t2 - t1) / len(dataset), len(dataset)))
 
     return acc, loss
 
+def predict(model, dataset, args: argparse.Namespace, dequan=False):
+    device = 'cuda' if args.cuda and torch.cuda.is_available() else 'cpu'
+    loader = DataLoader(dataset=dataset, batch_size=args.test_batch_size, shuffle=False, collate_fn=collate_fn, num_workers=args.num_workers)
+    all_predicts, all_targets = [], [] 
+    for (images, _, _) in loader:
+        # load train data
+        images = images.to(device)
+        model = model.to(device)
+        # Forward
+        logits = model(images)
+        if dequan:
+            logits = logits.dequantize()
+        # Calc loss
+        probs = logits.softmax(1).squeeze()
+        probs.cpu().detach().numpy()
+        if args.mode == 'beam':
+            pred_labels = beam_search(probs, topk=args.topk)
+        else:
+            pred_labels = greedy_search(probs)
+        all_predicts.extend(pred_labels)
+    return all_predicts
+
+def eval(predicts, targets):
+    Tp, Tn_1, Tn_2 = 0, 0, 0
+    for i, label in enumerate(predicts):
+            if len(label) != len(targets[i]):
+                Tn_1 += 1
+                continue
+            if (np.asarray(targets[i], dtype=np.int8) == np.asarray(label, dtype=np.int8)).all():
+                Tp += 1
+            else:
+                Tn_2 += 1
+    acc = Tp * 1.0 / (Tp + Tn_1 + Tn_2 + 1e-6)
+    phase = "Validation"
+    print("[INFO] {} accuracy: {} [{}:{}:{}:{}]".format(phase, acc, Tp, Tn_1, Tn_2, (Tp+Tn_1+Tn_2)))
+    return acc
+    
 def reduce_seq(pred_label):
     no_repeat_blank_label = list()
     pre_c = pred_label[0]
@@ -165,9 +199,11 @@ def beam_search(log_probs, topk=3):
         pred_labels.append(reduce_seq(pred_label[::-1]))
     return pred_labels
 
+def decode_label(lst):
+    return ''.join([CHARS[i] for i in lst])
+
 def show(model, dataset, args):
     encode_path = lambda path: f"{path[19]}/{path[21]}/{path[-11:]}"
-    decode_label = lambda lst: ''.join([CHARS[i] for i in lst])
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     n = len(dataset.track_path)
     ids = []

@@ -9,6 +9,7 @@ Author: ThinhVan27 .
 from data.load_data import CHARS, CHARS_DICT, LPRDataset
 from data.data_augment import *
 from model.LPRNet import build_lprnet
+from model.small_LPRNet import build_small_lprnet
 from utils import *
 
 import torch.nn.functional as F
@@ -32,7 +33,7 @@ def test():
     
     print(f"[INFO] Start testing...")
     #----------Build LPRNet model-----------
-    lprnet = build_lprnet(lpr_max_len=args.lpr_max_len, train=False, class_num=len(CHARS), dropout_rate=args.dropout_rate)
+    lprnet = build_small_lprnet(lpr_max_len=args.lpr_max_len, train=False, class_num=len(CHARS), dropout_rate=args.dropout_rate)
     device = "cuda" if args.cuda and torch.cuda.is_available() else "cpu"
     lprnet.to(device)
     print("[INFO] Successful to build network!")
@@ -47,7 +48,7 @@ def test():
         
     #----------Create test dataset------------
     test_dataset = LPRDataset(root=args.test_img_dirs,
-                              train=False,
+                              train=True,
                               lpr_max_len=args.lpr_max_len,
                               transform=test_transforms)
     print("[INFO] Load data successful!")

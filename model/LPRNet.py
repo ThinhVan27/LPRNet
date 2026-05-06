@@ -1,5 +1,6 @@
 from torchinfo import summary
 import torch.nn as nn
+import torch.nn.functional as F
 import torch
 
 class small_basic_block(nn.Module):
@@ -71,9 +72,9 @@ class LPRNet(nn.Module):
         # 22: 37x10x20
         for i, f in enumerate(keep_features):
             if i in [0,1]:
-                f = nn.AvgPool2d(kernel_size=(9, 19), stride=(3, 4))(f)
+                f = F.avg_pool2d(f, kernel_size=(9, 19), stride=(3, 4))
             if i == 2:
-                f = nn.AvgPool2d(kernel_size=(7, 9), stride=(3, 2))(f)
+                f = F.avg_pool2d(f, kernel_size=(7, 9), stride=(3, 2))
             f_pow = torch.pow(f, 2)
             f_norm = torch.sqrt(torch.sum(f_pow, dim=1, keepdim=True)) + 1e-10
             f = torch.mul(torch.div(f, f_norm), self.gammas[i].view(1,-1,1,1))
