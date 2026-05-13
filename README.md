@@ -23,8 +23,11 @@ pip install -r requirements.txt
 
 ### Prepare Your Data
 
-The project expects data in the following structure (this dataset is refactored myself from the public dataset in [ICPR 2026 Competition on Low-Resolution License Plate Recognition](https://icpr26lrlpr.github.io/#schedule), with train/test split ratio 0.8/0.2). :
-
+The project expects data in the following structure (this dataset is refactored myself from the public dataset in [ICPR 2026 Competition on Low-Resolution License Plate Recognition](https://icpr26lrlpr.github.io/#schedule), with train/test split ratio 0.8/0.2). You can download my custom dataset via script:
+```
+bash scripts/download_ds.sh
+```
+Dataset structure:
 ```
 data/
 ├── train/
