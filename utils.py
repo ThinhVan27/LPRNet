@@ -16,7 +16,7 @@ torch.cuda.manual_seed(42)
 torch.cuda.manual_seed_all(42)
 
 def get_parser(train=True):
-    parser = argparse.ArgumentParser(description='parameters to train net')
+    parser = argparse.ArgumentParser(description=f'parameters to {"train" if train else "test"} net')
     parser.add_argument('--config', default="config/" + f"{'train' if train else 'test'}_config.yaml", help='path to configuration file')
     args = parser.parse_args()
     # Load config from YAML

@@ -1,0 +1,24 @@
+# Model parameters
+lpr_max_len: 7
+dropout_rate: 0.5
+T_length: 20
+
+# Dataset paths
+test_img_dirs: "data/test"
+num_workers: 0
+
+# Training configuration
+test_batch_size: 32
+
+pretrained_model: "weights/small_LPRNet/best.pth"
+
+# Device
+cuda: true
+
+# wandb
+entity: "vovanthinhv225-ho-chi-minh-city-university-of-technology"
+project: "lprnet"
+
+# Beam Search
+topk: 5
+mode: "greedy"

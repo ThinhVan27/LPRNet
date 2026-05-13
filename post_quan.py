@@ -72,7 +72,10 @@ def eval_model(model: nn.Module, dataset: LPRDataset, args: SimpleNamespace, tit
 
 def main():
     set_seed(42)
-    args = load_test_config(config_path="config/test_config.yaml")
+    parser = argparse.ArgumentParser("Quantization Parser")
+    parser.add_argument('--config', default="config/quan_config.yaml", help='path to configuration file')
+    args = parser.parse_args()
+    args = load_test_config(config_path=args.config)
     
     # 1. ÉP KIỂU CHẠY TRÊN CPU CHO QUÁ TRÌNH LƯỢNG TỬ HÓA
     device = torch.device("cpu")
