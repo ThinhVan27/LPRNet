@@ -1,11 +1,10 @@
 # LPRNet: License Plate Recognition with Deep Learning
----
-## Overview
-This project implements **LPRNet** (License Plate Recognition Network), inspired from [LPRNet: License Plate Recognition via Deep Neural Networks](https://arxiv.org/abs/1806.10447) and modified for a downstream task - embedding into an computing device like FPGA. Therefore, it should be a light-weight model, real-time inference and significant accuracy.
 
----
+## 👀 Overview
+This project implements **LPRNet** (License Plate Recognition Network), inspired from [LPRNet: Liscense Plate Recognition via Deep Neural Networks](https://arxiv.org/abs/1806.10447) and modified for a downstream task - embedding into an computing device like FPGA. Therefore, it should be a light-weight model, real-time inference and significant accuracy.
 
-## Installation
+
+## 📦 Installation
 ```bash
 # Clone the repository
 git clone <repository_url>
@@ -19,13 +18,12 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
----
 
-## Quick Start
+## 🚀 Quick Start
 
-### 1. Prepare Your Data
+### Prepare Your Data
 
-The project expects data in the following structure (this dataset is refactored myself from the public dataset in [ICPR 2026 Competition on Low-Resolution License Plate Recognition](https://icpr26lrlpr.github.io/#schedule), with train/test split ratio 0.8/0.2):
+The project expects data in the following structure (this dataset is refactored myself from the public dataset in [ICPR 2026 Competition on Low-Resolution License Plate Recognition](https://icpr26lrlpr.github.io/#schedule), with train/test split ratio 0.8/0.2). :
 
 ```
 data/
@@ -60,7 +58,7 @@ Each track directory should contain:
   }
   ```
 
-### 2. Configure Training Parameters
+### Configure Training Parameters
 
 Edit `config/train_config.yaml` to customize training settings:
 
@@ -79,7 +77,7 @@ mode: "beam"                      # Decoding mode ("beam" or "greedy")
 cuda: true                        # Enable GPU acceleration
 ```
 
-### 3. Train the Model
+### Train the Model
 
 ```bash
 # Train LPRNet from scratch
@@ -93,7 +91,7 @@ python train.py
 # - Save checkpoints at specified intervals
 ```
 
-### 4. Test the Model
+### Test the Model
 
 ```bash
 # Test pre-trained or trained model
@@ -105,7 +103,7 @@ python test.py
 # - cuda: enable GPU acceleration
 ```
 
-### 5. Post-Training Quantization (Optional)
+### Post-Training Quantization (Optional)
 
 ```bash
 # Quantize SmallLPRNet for edge deployment
@@ -114,9 +112,8 @@ python post_quan.py
 # Note: Full FPGA embedding is out of scope for this project
 ```
 
----
 
-## Project Structure
+## 📂 Project Structure
 
 ```
 LPRNet/
@@ -172,21 +169,16 @@ LPRNet/
     └── download_ds.sh                 # Dataset download script
 ```
 
----
-
-## Model Architectures
+## 🏗️ Model Architectures
 
 - LPRNet (Full Version): built based-on the paper with some tiny modification.
 
 - SmallLPRNet (Lightweight Version): optimized for futher deployment in FPGA.
 
-
----
-
-## Training Details
+## 📈 Training Details
 
 ### Loss Function
-- Character-level Cross-Entropy loss
+- Connectionist Temporal Classification loss.
 - Applied to predicted logits vs. ground truth character indices
 
 ### Optimizer
@@ -201,19 +193,9 @@ LPRNet/
 ### Data Augmentation
 - Random rotations
 - Brightness/contrast adjustments
-- Noise injection
-- Geometric transformations
+- Denoising and sharpening
 
-### Training Setup
-- **Batch size**: 128
-- **Max epochs**: 500
-- **Checkpointing**: Every 200 iterations
-- **Validation**: Every 200 iterations
-- **Device**: GPU (CUDA) if available, otherwise CPU
-
----
-
-## Decoding Strategies
+## 🔍 Decoding Strategies
 
 ### Greedy Decoding
 - Selects the character with highest probability at each position
@@ -226,23 +208,16 @@ LPRNet/
 - Improved accuracy at computational cost
 - Better handling of ambiguous predictions
 
----
+## 📊 Evaluation Metrics
 
-## Evaluation Metrics
-
-- **Character Recognition Rate (CRR)**: Per-character accuracy
 - **Sequence Recognition Rate (SRR)**: Exact plate match accuracy
-- **Confusion Matrix**: Per-character classification analysis
 
----
-
-## License
+## 📜 License
 
 This project is licensed under the **Apache License 2.0**. See the `LICENSE` file for full details.
 
----
 
-## Citation
+## 📚 Citation
 
 If you use this project in your research, please cite it as follows:
 
