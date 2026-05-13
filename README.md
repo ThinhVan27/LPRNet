@@ -218,18 +218,3 @@ LPRNet/
 ## 📜 License
 
 This project is licensed under the **Apache License 2.0**. See the `LICENSE` file for full details.
-
-
-## 📚 Citation
-
-If you use this project in your research, please cite it as follows:
-
-```bibtex
-@misc{lprnet2024,
-  title={LPRNet: License Plate Recognition with Deep Learning},
-  author={ThinhVan27},
-  year={2024},
-  publisher={Ho Chi Minh City University of Technology},
-  howpublished={\url{https://github.com/your-repo/LPRNet}}
-}
-```
